@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitBase Datastore Display</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #f0f4f8, #e0e6ed);
+            color: #333;
+        }
+        header {
+            background: #4a90e2;
+            color: white;
+            padding: 15px 20px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            margin-bottom: 20px;
+            font-size: 2em;
+            font-weight: 600;
+        }
+        .folder, .file {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .folder:hover, .file:hover {
+            background-color: #f1f1f1;
+            transform: scale(1.02);
+        }
+        .folder-icon, .file-icon {
+            margin-right: 15px;
+            font-size: 1.2em;
+        }
+        .folder-icon::before {
+            content: "📁";
+        }
+        .file-icon::before {
+            content: "📄";
+        }
+        .folder-content, .file-content {
+            display: none;
+            margin-left: 30px;
+            padding-left: 15px;
+            border-left: 2px solid #ddd;
+        }
+        .file-content {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 6px;
+            white-space: pre-wrap;
+        }
+        .toggle-btn {
+            margin-left: auto;
+            font-size: 0.9em;
+            padding: 7px 12px;
+            background-color: #4a90e2;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .toggle-btn:hover {
+            background-color: #357abd;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>GitBase Datastore Display</h1>
+</header>
+
+<div class="container" id="data-container">
+    <p>Loading data...</p>
+</div>
+
+<script>
+    const GITHUB_TOKEN = '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'; // Replace with a safe method to store GitHub token
+
+    async function fetchFiles() {
+        const repoUrl = 'https://api.github.com/repos/TaireruLLC/database/contents/';
+    
+        try {
+            const response = await fetch(repoUrl, {
+                headers: {
+                    Authorization: `token ${GITHUB_TOKEN}`
+                }
+            });
+    
+            if (!response.ok) {
+                throw new Error(`GitHub API error: ${response.status}`);
+            }
+    
+            const files = await response.json();
+    
+            // Check if we received an array
+            if (!Array.isArray(files)) {
+                throw new Error('Invalid response format. Expected an array of files.');
+            }
+    
+            displayFiles(files);
+        } catch (error) {
+            console.error('Error fetching files:', error);
+            document.getElementById('data-container').innerHTML = `<p>Error loading data: ${error.message}</p>`;
+        }
+    }
+
+    async function fetchFileContent(fileUrl) {
+        const response = await fetch(`/api/github-file?fileUrl=${encodeURIComponent(fileUrl)}`);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch file content: ${response.status}`);
+        }
+        return response.text();
+    }
+
+    function createFileElement(file) {
+        const fileElement = document.createElement('div');
+        fileElement.classList.add('file');
+        fileElement.innerHTML = `
+            <span class="file-icon"></span>
+            <span class="file-name">${file.name}</span>
+            <button class="toggle-btn">View</button>
+        `;
+
+        const contentDiv = document.createElement('div');
+        contentDiv.classList.add('file-content');
+        fileElement.appendChild(contentDiv);
+
+        fileElement.querySelector('.toggle-btn').addEventListener('click', async () => {
+            if (contentDiv.style.display === 'block') {
+                contentDiv.style.display = 'none';
+            } else {
+                const content = await fetchFileContent(file.download_url);
+                contentDiv.textContent = content;
+                contentDiv.style.display = 'block';
+            }
+        });
+
+        return fileElement;
+    }
+
+    function createFolderElement(folder) {
+        // Skip creation of folder elements if the folder itself should be ignored
+        if (folder.path.startsWith('api/')) {
+            return null; // Skip 'api' folder and its contents
+        }
+    
+        const folderElement = document.createElement('div');
+        folderElement.classList.add('folder');
+        folderElement.innerHTML = `
+            <span class="folder-icon"></span>
+            <span class="folder-name">${folder.name}</span>
+            <button class="toggle-btn">Open</button>
+        `;
+    
+        const folderContent = document.createElement('div');
+        folderContent.classList.add('folder-content');
+        folderElement.appendChild(folderContent);
+    
+        folderElement.querySelector('.toggle-btn').addEventListener('click', async () => {
+            if (folderContent.style.display === 'block') {
+                folderContent.style.display = 'none';
+            } else {
+                const response = await fetch(`https://api.github.com/repos/TaireruLLC/database/contents/${folder.path}`, {
+                    headers: {
+                        Authorization: `token ${GITHUB_TOKEN}`
+                    }
+                });
+                const subFiles = await response.json();
+                // Only display files that are not in 'api' folders
+                const filteredSubFiles = subFiles.filter(file => !file.path.startsWith('api/'));
+                displayFiles(filteredSubFiles, folderContent);
+                folderContent.style.display = 'block';
+            }
+        });
+    
+        return folderElement;
+    }
+
+    function displayFiles(files, container = document.getElementById('data-container')) {
+        container.innerHTML = ''; // Clear existing content
+    
+        files.forEach(file => {
+            if (file.name === 'index.html' || file.name === 'README.md' || file.path.startsWith('api/')) {
+                return; // Ignore index.html, README.md, and 'api' folder and its contents
+            }
+    
+            let fileElement;
+            if (file.type === 'dir') {
+                fileElement = createFolderElement(file);
+            } else if (file.type === 'file') {
+                fileElement = createFileElement(file);
+            }
+    
+            container.appendChild(fileElement);
+        });
+    }
+
+    // Fetch files on page load
+    fetchFiles();
+</script>
+
+</body>
+</html>
