@@ -1,7 +1,10 @@
-# Gitbase Web
+# GitBase Web - 0.0.4
 
-## Gitbase Web is an extension of the PyPi module by Taireru LLC called GitBase. This extension allows the developer to veiw all of their saved data via the web.
-## Please note that to view said data you **MUST** use a private repo and use a website hosting service such as vercel.
+## Latest Updates: 
+1. Added file editing
+
+### Gitbase Web is an extension of the PyPi module by Taireru LLC called GitBase. This extension allows the developer to veiw all of their saved data via the web.
+### Please note that to view said data you **MUST** use a private repo and use a website hosting service such as vercel.
 
 # Links: 
 ## GitBase: https://pypi.org/project/gitbase/
