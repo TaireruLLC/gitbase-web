@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>APP_NAME - Database</title>
+    <title>appName - Database</title>
     <link rel="icon" href="favicon.ico" type="image/x-icon">
     <style>
         body {
@@ -127,19 +127,29 @@
         .save-btn:hover {
             background-color: #45a049;
         }
+        .session {
+            font-size: 1em;
+            color: red;
+            margin-top: 10px;
+        }
+        .countdown {
+            font-size: 1em;
+            color: green;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>APP_NAME - Database</h1>
+    <h1>appName - Database</h1>
 </header>
 
 <div class="container" id="login-container">
     <form class="login-form" id="login-form">
         <h2>Login</h2>
-        <input type="text" id="username" placeholder="Username" required>
-        <input type="password" id="password" placeholder="Password" required>
+        <input type="text" id="username" placeholder="Username" required autocomplete="username">
+        <input type="password" id="password" placeholder="Password" required autocomplete="current-password">
         <button type="submit">Login</button>
         <p id="error-message" style="color: red; display: none;">Invalid credentials, please try again.</p>
     </form>
@@ -150,9 +160,11 @@
 </div>
 
 <script>
+    let sessionFlag = false;
     const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // Replace with a safe method to store GitHub token
-    const validUsername = 'YOUR_DATABASE_ADMIN_USERNAME'; // Set your username
-    const validPassword = 'SECRET_PASSWORD'; // Replace with a safe method to store GitHub password
+    const validUsername = 'admin'; // Set your username
+    const validPassword = 'password123!'; // Replace with a safe method to store GitHub password
+    const repoUrl = 'https://api.github.com/repos/YOUR_USERNAME/THIS_REPOS_NAME/contents/'; // Replace with your info
 
     document.getElementById('login-form').addEventListener('submit', function(event) {
         event.preventDefault();
@@ -169,8 +181,6 @@
     });
 
     async function fetchFiles() {
-        const repoUrl = 'https://api.github.com/repos/YOUR_GITHUB_USERNAME/THIS_REPOS_NAME/contents/'; // Replace with your info
-    
         try {
             const response = await fetch(repoUrl, {
                 headers: {
@@ -246,53 +256,67 @@
         saveButton.addEventListener('click', async () => {
             const updatedContent = editorTextarea.value;
             await saveFileContent(file.path, updatedContent);
-            alert('File saved successfully!');
-            editorDiv.style.display = 'none'; // Hide editor after saving
+            editorDiv.style.display = 'block'; // Keep it visible
+            if (editorDiv.style.display === 'block') {
+                editorDiv.style.display = 'none';
+            } else {
+                editorDiv.textContent = updatedContent; // Update displayed content
+                editorDiv.style.display = 'block';
+            }
         });
 
         return fileElement;
     }
 
     async function fetchFileContent(fileUrl) {
-        const response = await fetch(`/api/github-file?fileUrl=${encodeURIComponent(fileUrl)}`);
+        const response = await fetch(fileUrl);
         if (!response.ok) {
-            throw new Error(`Failed to fetch file content: ${response.status}`);
+            throw new Error('Failed to fetch file content: ' + response.status);
         }
         return response.text();
     }
 
     async function saveFileContent(filePath, content) {
-        const response = await fetch(`https://api.github.com/repos/YOUR_GITHUB_USERNAME/THIS_REPOS_NAME/contents/${filePath}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${GITHUB_TOKEN}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: 'Updating file content',
-                content: btoa(content), // Base64 encode the content
-                sha: await fetchFileSha(filePath) // Fetch current SHA to update
-            })
-        });
+        try {
+            const encodedContent = btoa(unescape(encodeURIComponent(content))); // Ensuring proper Base64 encoding
+            const sha = await fetchFileSha(filePath);
+            
+            const response = await fetch(`${repoUrl}${filePath}`, {
+                method: 'PUT',
+                headers: {
+                    Authorization: `token ${GITHUB_TOKEN}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    message: 'Updating file content',
+                    content: encodedContent,
+                    sha: sha
+                })
+            });
 
-        if (!response.ok) {
-            throw new Error(`Failed to save file: ${response.status}`);
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error('Failed to save file: ' + (errorData.message || response.statusText));
+            }
+
+            alert('File saved successfully!');
+            startCountdown(filePath, 35);
+        } catch (error) {
+            console.error('Error saving file:', error);
         }
-        return response.json();
     }
 
     async function fetchFileSha(filePath) {
-        const response = await fetch(`https://api.github.com/repos/YOUR_GITHUB_USERNAME/THIS_REPOS_NAME/contents/${filePath}`, {
+        const response = await fetch(`${repoUrl}${filePath}`, {
             headers: {
                 Authorization: `token ${GITHUB_TOKEN}`
             }
         });
-
         if (!response.ok) {
-            throw new Error(`Failed to fetch file SHA: ${response.status}`);
+            throw new Error('Failed to fetch file SHA: ' + response.statusText);
         }
         const fileData = await response.json();
-        return fileData.sha; // Return the SHA of the file
+        return fileData.sha;
     }
 
     function displayFiles(files, container = document.getElementById('data-container')) {
@@ -312,6 +336,10 @@
     
             container.appendChild(fileElement);
         });
+        if (sessionFlag === false) {
+            startSessionCountdown(60); // Start a 60-second countdown timer
+            sessionFlag = true;
+        }
     }
 
     function createFolderElement(folder) {
@@ -331,7 +359,7 @@
             if (folderContent.style.display === 'block') {
                 folderContent.style.display = 'none';
             } else {
-                const response = await fetch(`https://api.github.com/repos/YOUR_GITHUB_USERNAME/THIS_REPOS_NAME/contents/${folder.path}`, {
+                const response = await fetch(`${repoUrl}/${folder.path}`, {
                     headers: {
                         Authorization: `token ${GITHUB_TOKEN}`
                     }
@@ -344,6 +372,48 @@
         });
     
         return folderElement;
+    }
+
+    function startSessionCountdown(duration) {
+        const countdownDisplay = document.createElement('div');
+        countdownDisplay.classList.add('session');
+        document.getElementById('data-container').appendChild(countdownDisplay);
+
+        let timer = duration;
+        const interval = setInterval(() => {
+            const minutes = Math.floor(timer / 60);
+            const seconds = timer % 60;
+            countdownDisplay.textContent = `Session will expire in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            if (timer <= 0) {
+                clearInterval(interval);
+                alert('Session expired. Please log in again.');
+                window.location.reload(); // Reload to show login again
+            }
+            timer--;
+        }, 1000);
+    }
+
+    setInterval(() => {
+        window.location.reload(); // Refresh the page every 300 seconds
+    }, 300000); // 5 minutes
+
+    function startCountdown(filename, duration) {
+        const countdownDisplay = document.createElement('div');
+        countdownDisplay.classList.add('countdown');
+        document.getElementById('data-container').appendChild(countdownDisplay);
+
+        let timer = duration;
+        const interval = setInterval(() => {
+            const minutes = Math.floor(timer / 60);
+            const seconds = timer % 60;
+            countdownDisplay.textContent = `File "${filename}" will update in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+            if (timer <= 0) {
+                clearInterval(interval);
+                alert('File "${filename}" updated. Please log in again.');
+                window.location.reload(); // Reload to show login again
+            }
+            timer--;
+        }, 1000);
     }
 </script>
 
