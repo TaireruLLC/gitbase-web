@@ -1,7 +1,10 @@
-# GitBase Web - 0.0.4
+# GitBase Web - 0.0.5
 
 ## Latest Updates: 
-1. Added file editing
+1. Added a const GitHub API url to reduce redundancy
+2. Added a session timeout (60 seconds)
+3. Made file editing more responsive
+4. Hosted GitBase Web source repo to a site ( https://gitbase-web.vercel.app/ )
 
 ### Gitbase Web is an extension of the PyPi module by Taireru LLC called GitBase. This extension allows the developer to veiw all of their saved data via the web.
 ### Please note that to view said data you **MUST** use a private repo and use a website hosting service such as vercel.
