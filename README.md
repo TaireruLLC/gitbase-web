@@ -25,8 +25,8 @@ Warm regards,
 https://gitbase-web.vercel.app/
 
 # Links: 
-GitBase: https://tairerullc.vercel.app/apps/gitbase.html
-Website: https://tairerullc.vercel.app/
+* GitBase: https://tairerullc.vercel.app/apps/gitbase.html
+* Website: https://tairerullc.vercel.app/
 
 ### Contact 'tairerullc@gmail.com' for any inquires and we will get back at our latest expense. Thank you for using our product and happy coding!
 
