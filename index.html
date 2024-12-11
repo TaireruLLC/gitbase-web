@@ -78,13 +78,13 @@
             font-size: 1.2em;
         }
         .folder-icon::before {
-            content: "📁";
+            content: "\ud83d\udcc1";
         }
         .file-icon::before {
-            content: "📄";
+            content: "\ud83d\udcc4";
         }
         .spec-icon::before {
-            content: "⭐️";
+            content: "\u2b50\ufe0f";
         }
         .folder-content, .file-content {
             display: none;
@@ -160,11 +160,10 @@
 </div>
 
 <script>
-    let sessionFlag = false;
-    const GITHUB_TOKEN = 'YOUR_GITHUB_TOKEN'; // Replace with a safe method to store GitHub token
-    const validUsername = 'admin'; // Set your username
-    const validPassword = 'password123!'; // Replace with a safe method to store GitHub password
-    const repoUrl = 'https://api.github.com/repos/YOUR_USERNAME/THIS_REPOS_NAME/contents/'; // Replace with your info
+    const GITHUB_TOKEN = process.env.GITHUB_TOKEN; // Use secure storage for tokens
+    const validUsername = process.env.VALID_USERNAME;
+    const validPassword = process.env.VALID_PASSWORD;
+    const repoUrl = process.env.REPO_URL;
 
     document.getElementById('login-form').addEventListener('submit', function(event) {
         event.preventDefault();
@@ -174,7 +173,7 @@
         if (username === validUsername && password === validPassword) {
             document.getElementById('login-container').style.display = 'none';
             document.getElementById('data-container').style.display = 'block';
-            fetchFiles(); // Load the data after successful login
+            fetchFiles();
         } else {
             document.getElementById('error-message').style.display = 'block';
         }
@@ -187,17 +186,17 @@
                     Authorization: `token ${GITHUB_TOKEN}`
                 }
             });
-    
+
             if (!response.ok) {
                 throw new Error(`GitHub API error: ${response.status}`);
             }
-    
+
             const files = await response.json();
-    
+
             if (!Array.isArray(files)) {
                 throw new Error('Invalid response format. Expected an array of files.');
             }
-    
+
             displayFiles(files);
         } catch (error) {
             console.error('Error fetching files:', error);
@@ -208,12 +207,9 @@
     function createFileElement(file) {
         const fileElement = document.createElement('div');
         fileElement.classList.add('file');
-        let file_name = (file.name === 'README.md') ? 'LICENSE' : file.name;
-        let file_icon = (file.name === 'README.md') ? 'spec-icon' : 'file-icon';
-        
         fileElement.innerHTML = `
-            <span class="${file_icon}"></span>
-            <span class="file-name">${file_name}</span>
+            <span class="file-icon"></span>
+            <span class="file-name">${file.name}</span>
             <button class="toggle-btn">View</button>
             <button class="edit-btn">Edit</button>
         `;
@@ -222,19 +218,6 @@
         contentDiv.classList.add('file-content');
         fileElement.appendChild(contentDiv);
 
-        // Create editor for editing file content
-        const editorDiv = document.createElement('div');
-        editorDiv.classList.add('editor');
-        const editorTextarea = document.createElement('textarea');
-        editorTextarea.style.width = '100%';
-        editorTextarea.style.height = '100px';
-        const saveButton = document.createElement('button');
-        saveButton.classList.add('save-btn');
-        saveButton.innerText = 'Save Changes';
-        editorDiv.appendChild(editorTextarea);
-        editorDiv.appendChild(saveButton);
-        fileElement.appendChild(editorDiv);
-
         fileElement.querySelector('.toggle-btn').addEventListener('click', async () => {
             if (contentDiv.style.display === 'block') {
                 contentDiv.style.display = 'none';
@@ -242,26 +225,6 @@
                 const content = await fetchFileContent(file.download_url);
                 contentDiv.textContent = content;
                 contentDiv.style.display = 'block';
-            }
-        });
-
-        // Show editor when edit button is clicked
-        fileElement.querySelector('.edit-btn').addEventListener('click', async () => {
-            const content = await fetchFileContent(file.download_url);
-            editorTextarea.value = content; // Load current file content into the editor
-            editorDiv.style.display = 'block'; // Show the editor
-        });
-
-        // Save changes to the file
-        saveButton.addEventListener('click', async () => {
-            const updatedContent = editorTextarea.value;
-            await saveFileContent(file.path, updatedContent);
-            editorDiv.style.display = 'block'; // Keep it visible
-            if (editorDiv.style.display === 'block') {
-                editorDiv.style.display = 'none';
-            } else {
-                editorDiv.textContent = updatedContent; // Update displayed content
-                editorDiv.style.display = 'block';
             }
         });
 
@@ -276,144 +239,12 @@
         return response.text();
     }
 
-    async function saveFileContent(filePath, content) {
-        try {
-            const encodedContent = btoa(unescape(encodeURIComponent(content))); // Ensuring proper Base64 encoding
-            const sha = await fetchFileSha(filePath);
-            
-            const response = await fetch(`${repoUrl}${filePath}`, {
-                method: 'PUT',
-                headers: {
-                    Authorization: `token ${GITHUB_TOKEN}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    message: 'Updating file content',
-                    content: encodedContent,
-                    sha: sha
-                })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error('Failed to save file: ' + (errorData.message || response.statusText));
-            }
-
-            alert('File saved successfully!');
-            startCountdown(filePath, 35);
-        } catch (error) {
-            console.error('Error saving file:', error);
-        }
-    }
-
-    async function fetchFileSha(filePath) {
-        const response = await fetch(`${repoUrl}${filePath}`, {
-            headers: {
-                Authorization: `token ${GITHUB_TOKEN}`
-            }
-        });
-        if (!response.ok) {
-            throw new Error('Failed to fetch file SHA: ' + response.statusText);
-        }
-        const fileData = await response.json();
-        return fileData.sha;
-    }
-
     function displayFiles(files, container = document.getElementById('data-container')) {
-        container.innerHTML = ''; // Clear existing content
-    
+        container.innerHTML = '';
         files.forEach(file => {
-            if (file.name === 'index.html' || file.name === 'favicon.ico' || file.path.startsWith('api/') || file.name === 'api') {
-                return; // Ignore certain files and folders
-            }
-    
-            let fileElement;
-            if (file.type === 'dir') {
-                fileElement = createFolderElement(file);
-            } else if (file.type === 'file') {
-                fileElement = createFileElement(file);
-            }
-    
+            const fileElement = createFileElement(file);
             container.appendChild(fileElement);
         });
-        if (sessionFlag === false) {
-            startSessionCountdown(60); // Start a 60-second countdown timer
-            sessionFlag = true;
-        }
-    }
-
-    function createFolderElement(folder) {
-        const folderElement = document.createElement('div');
-        folderElement.classList.add('folder');
-        folderElement.innerHTML = `
-            <span class="folder-icon"></span>
-            <span class="folder-name">${folder.name}</span>
-            <button class="toggle-btn">Open</button>
-        `;
-    
-        const folderContent = document.createElement('div');
-        folderContent.classList.add('folder-content');
-        folderElement.appendChild(folderContent);
-    
-        folderElement.querySelector('.toggle-btn').addEventListener('click', async () => {
-            if (folderContent.style.display === 'block') {
-                folderContent.style.display = 'none';
-            } else {
-                const response = await fetch(`${repoUrl}/${folder.path}`, {
-                    headers: {
-                        Authorization: `token ${GITHUB_TOKEN}`
-                    }
-                });
-                const subFiles = await response.json();
-                const filteredSubFiles = subFiles.filter(file => !file.path.startsWith('api/'));
-                displayFiles(filteredSubFiles, folderContent);
-                folderContent.style.display = 'block';
-            }
-        });
-    
-        return folderElement;
-    }
-
-    function startSessionCountdown(duration) {
-        const countdownDisplay = document.createElement('div');
-        countdownDisplay.classList.add('session');
-        document.getElementById('data-container').appendChild(countdownDisplay);
-
-        let timer = duration;
-        const interval = setInterval(() => {
-            const minutes = Math.floor(timer / 60);
-            const seconds = timer % 60;
-            countdownDisplay.textContent = `Session will expire in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            if (timer <= 0) {
-                clearInterval(interval);
-                alert('Session expired. Please log in again.');
-                window.location.reload(); // Reload to show login again
-            }
-            timer--;
-        }, 1000);
-    }
-
-    setInterval(() => {
-        window.location.reload(); // Refresh the page every 300 seconds
-    }, 300000); // 5 minutes
-
-    function startCountdown(filename, duration) {
-        const countdownDisplay = document.createElement('div');
-        countdownDisplay.classList.add('countdown');
-        document.getElementById('data-container').appendChild(countdownDisplay);
-
-        let timer = duration;
-        const interval = setInterval(() => {
-            const minutes = Math.floor(timer / 60);
-            const seconds = timer % 60;
-            countdownDisplay.textContent = `File "${filename}" will update in ${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
-            if (timer <= 0) {
-                clearInterval(interval);
-                alert('File "${filename}" updated. Please log in again.');
-                window.location.reload(); // Reload to show login again
-            }
-            timer--;
-        }, 1000);
     }
 </script>
 
