@@ -1,4 +1,4 @@
-# OctaStore Web - 0.0.7
+# OctaStore Web - 0.1.0
 
 OctaStore Web is an extension of the python project by Taireru LLC called OctaStore. This extension allows the developer to veiw all of their saved data via the web.
  Please note that to view said data you **MUST** use a private repo and use a website hosting service such as vercel.
